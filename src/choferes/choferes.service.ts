@@ -61,11 +61,12 @@ export class ChoferesService {
         await supabase.auth.admin.createUser({
           email: createChoferDto.email,
           password: passwordTemporal,
-          email_confirm: true, // Auto-confirmar email
+          email_confirm: true,
           user_metadata: {
             nombre: createChoferDto.nombre,
             apellido: createChoferDto.apellido,
             rol: 'chofer',
+            password_temporal: true, // ← Marcar como temporal
           },
         });
 
@@ -97,7 +98,6 @@ export class ChoferesService {
 
       if (choferError) {
         console.error('❌ Error guardando chofer:', choferError);
-        // Eliminar usuario de Auth si falla
         await supabase.auth.admin.deleteUser(authData.user.id);
         throw new BadRequestException('Error al guardar chofer');
       }
@@ -117,10 +117,7 @@ export class ChoferesService {
         );
         console.log('✅ Email enviado exitosamente');
       } catch (emailError) {
-        console.warn(
-          '⚠️ Error enviando email (pero chofer creado):',
-          emailError,
-        );
+        console.warn('⚠️ Error enviando email:', emailError);
       }
 
       return {
@@ -134,7 +131,6 @@ export class ChoferesService {
           busAsignado: bus,
           turno: chofer.turno,
         },
-        passwordTemporal, // Solo para propósitos de desarrollo
       };
     } catch (error) {
       console.error('❌ Error en create chofer:', error);
@@ -196,43 +192,31 @@ export class ChoferesService {
   async update(id: number, updateChoferDto: UpdateChoferDto) {
     const supabase = this.supabaseService.getClient();
 
-    console.log('🔄 Actualizando chofer:', id);
-    console.log('📝 Datos recibidos:', updateChoferDto);
+    const { data, error } = await supabase
+      .from('choferes')
+      .update({
+        nombre: updateChoferDto.nombre,
+        apellido: updateChoferDto.apellido,
+        email: updateChoferDto.email,
+        telefono: updateChoferDto.telefono,
+        bus_asignado_id: updateChoferDto.busAsignado,
+        turno: updateChoferDto.turno,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
 
-    try {
-      const { data, error } = await supabase
-        .from('choferes')
-        .update({
-          nombre: updateChoferDto.nombre,
-          apellido: updateChoferDto.apellido,
-          email: updateChoferDto.email,
-          telefono: updateChoferDto.telefono,
-          bus_asignado_id: updateChoferDto.busAsignado, // <-- Mapear correctamente
-          turno: updateChoferDto.turno,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        console.error('❌ Error de Supabase:', error);
-        throw new BadRequestException(
-          'Error al actualizar chofer: ' + error.message,
-        );
-      }
-
-      console.log('✅ Chofer actualizado:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error en update:', error);
-      throw error;
+    if (error) {
+      throw new BadRequestException('Error al actualizar chofer');
     }
+
+    return data;
   }
+
   async remove(id: number) {
     const supabase = this.supabaseService.getClient();
 
-    // Desactivar en lugar de eliminar
     const { error } = await supabase
       .from('choferes')
       .update({ activo: false })
@@ -248,9 +232,6 @@ export class ChoferesService {
   async removePermanently(id: number) {
     const supabase = this.supabaseService.getClient();
 
-    console.log('🗑️ Eliminando permanentemente chofer:', id);
-
-    // Primero eliminar el usuario de Auth
     const { data: chofer } = await supabase
       .from('choferes')
       .select('auth_user_id')
@@ -261,7 +242,6 @@ export class ChoferesService {
       await supabase.auth.admin.deleteUser(chofer.auth_user_id);
     }
 
-    // Luego eliminar de la tabla
     const { error } = await supabase.from('choferes').delete().eq('id', id);
 
     if (error) {

@@ -6,6 +6,7 @@ import { BusesModule } from './buses/buses.module';
 import { EmailModule } from './email/email.module';
 import { DatabaseModule } from './database/databse.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { SocketModule } from './socket/socket-module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     BusesModule,
     EmailModule,
     DashboardModule,
+    SocketModule,
   ],
 })
 export class AppModule {}

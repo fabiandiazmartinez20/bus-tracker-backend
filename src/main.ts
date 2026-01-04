@@ -28,6 +28,5 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0'); // Escucha en todas las interfaces de red
 
   console.log(`🚀 Server running on port ${port}`);
-  console.log(`🌐 API disponible en: https://tu-servicio.onrender.com/api`);
 }
 bootstrap();
