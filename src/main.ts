@@ -9,7 +9,8 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://bus-tracker-dashboard.pages.dev',
-      'http://localhost:5173', // para desarrollo local
+      'http://localhost:5173',
+      'http://localhost:8081', // para desarrollo local
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
