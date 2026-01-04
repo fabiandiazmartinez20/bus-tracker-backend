@@ -7,8 +7,12 @@ async function bootstrap() {
 
   // Habilitar CORS
   app.enableCors({
-    origin: process.env.FRONTEND_URL?.split(',') ?? [],
-    credentials: true,
+    origin: [
+      'https://bus-tracker-dashboard.pages.dev',
+      'http://localhost:5173', // para desarrollo local
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Validación global
