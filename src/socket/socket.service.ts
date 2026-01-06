@@ -3,7 +3,7 @@ import { SupabaseService } from '../database/supabase.service';
 
 @Injectable()
 export class SocketService {
-  private choferesConectados = new Map<string, number>(); // socketId -> choferId
+  private choferesConectados = new Map<string, number>();
 
   constructor(private supabaseService: SupabaseService) {}
 
@@ -11,16 +11,19 @@ export class SocketService {
   async iniciarRuta(choferId: number, busId: number, socketId: string) {
     const supabase = this.supabaseService.getClient();
 
-    // Verificar que no tenga una ruta activa
-    const { data: rutaExistente } = await supabase
-      .from('rutas_activas')
-      .select('*')
-      .eq('chofer_id', choferId)
-      .eq('activa', true)
-      .single();
+    console.log(`🚀 Iniciando ruta para chofer ${choferId}`);
 
-    if (rutaExistente) {
-      throw new Error('El chofer ya tiene una ruta activa');
+    // ✅ SIEMPRE limpiar rutas activas antes de crear una nueva
+    const { error: errorLimpiar } = await supabase
+      .from('rutas_activas')
+      .update({ activa: false })
+      .eq('chofer_id', choferId)
+      .eq('activa', true);
+
+    if (errorLimpiar) {
+      console.error('❌ Error limpiando rutas anteriores:', errorLimpiar);
+    } else {
+      console.log('✅ Rutas anteriores limpiadas (si existían)');
     }
 
     // Crear nueva ruta activa
@@ -29,17 +32,21 @@ export class SocketService {
       .insert({
         chofer_id: choferId,
         bus_id: busId,
-        latitud: 0, // Se actualizará con la primera ubicación
+        latitud: 0,
         longitud: 0,
         activa: true,
       })
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error creando ruta:', error);
+      throw error;
+    }
 
     this.choferesConectados.set(socketId, choferId);
 
+    console.log('✅ Ruta creada exitosamente:', data.id);
     return data;
   }
 
@@ -59,7 +66,7 @@ export class SocketService {
       .select('id')
       .eq('chofer_id', data.choferId)
       .eq('activa', true)
-      .single();
+      .maybeSingle(); // ✅ Usar maybeSingle
 
     if (!ruta) return;
 
@@ -89,29 +96,53 @@ export class SocketService {
   async finalizarRuta(choferId: number) {
     const supabase = this.supabaseService.getClient();
 
+    console.log(`🛑 Finalizando ruta para chofer ${choferId}`);
+
     // Obtener ruta activa
     const { data: ruta } = await supabase
       .from('rutas_activas')
       .select('*')
       .eq('chofer_id', choferId)
       .eq('activa', true)
-      .single();
+      .maybeSingle(); // ✅ Usar maybeSingle
 
-    if (!ruta) return;
+    if (!ruta) {
+      console.log('⚠️ No se encontró ruta activa para finalizar');
+      return { message: 'No hay ruta activa' };
+    }
+
+    console.log(`📍 Ruta encontrada: ID ${ruta.id}`);
 
     // Marcar como inactiva
-    await supabase
+    const { error: errorUpdate } = await supabase
       .from('rutas_activas')
       .update({ activa: false })
       .eq('id', ruta.id);
 
+    if (errorUpdate) {
+      console.error('❌ Error actualizando ruta:', errorUpdate);
+      throw new Error('Error al marcar ruta como inactiva');
+    }
+
+    console.log(`✅ Ruta ${ruta.id} marcada como inactiva`);
+
     // Guardar en historial
-    await supabase.from('historial_rutas').insert({
-      chofer_id: ruta.chofer_id,
-      bus_id: ruta.bus_id,
-      inicio: ruta.inicio,
-      fin: new Date().toISOString(),
-    });
+    const { error: errorHistorial } = await supabase
+      .from('historial_rutas')
+      .insert({
+        chofer_id: ruta.chofer_id,
+        bus_id: ruta.bus_id,
+        inicio: ruta.inicio,
+        fin: new Date().toISOString(),
+      });
+
+    if (errorHistorial) {
+      console.error('⚠️ Error guardando historial:', errorHistorial);
+    } else {
+      console.log(`✅ Ruta guardada en historial`);
+    }
+
+    return { message: 'Ruta finalizada exitosamente' };
   }
 
   // 🗺️ Obtener buses activos
