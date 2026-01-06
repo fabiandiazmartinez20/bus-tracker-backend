@@ -53,6 +53,10 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     return { success: true, ruta };
   }
+  catch(error) {
+    this.logger.error(`Error iniciando ruta: ${error.message}`);
+    return { success: false, message: error.message };
+  }
 
   // 📍 Chofer envía ubicación
   @SubscribeMessage('chofer:ubicacion')
