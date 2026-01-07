@@ -24,8 +24,19 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   constructor(private socketService: SocketService) {}
 
-  handleConnection(client: Socket) {
+  async handleConnection(client: Socket) {
     this.logger.log(`Cliente conectado: ${client.id}`);
+
+    // ✅ NUEVO: Enviar buses activos inmediatamente al conectarse
+    try {
+      const busesActivos = await this.socketService.obtenerBusesActivos();
+      client.emit('bus:lista-actualizada', { buses: busesActivos });
+      this.logger.log(
+        `📋 Enviando ${busesActivos.length} buses a ${client.id}`,
+      );
+    } catch (error) {
+      this.logger.error(`Error enviando buses iniciales: ${error.message}`);
+    }
   }
 
   handleDisconnect(client: Socket) {
@@ -49,6 +60,16 @@ export class SocketGateway implements OnGatewayConnection, OnGatewayDisconnect {
         data.busId,
         client.id,
       );
+
+      // ✅ NUEVO: Notificar a todos los pasajeros que hay un nuevo bus
+      this.server.emit('bus:ruta-iniciada', {
+        rutaId: ruta.id,
+        choferId: data.choferId,
+        busId: data.busId,
+        timestamp: new Date(),
+      });
+
+      this.logger.log(`✅ Ruta iniciada y broadcast enviado`);
 
       return { success: true, ruta };
     } catch (error) {
